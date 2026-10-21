@@ -1,4 +1,6 @@
 allowBuilds:
+  workerd: true
+  esbuild: true
   sharp: false
   unrs-resolver: false
 minimumReleaseAgeExclude:
