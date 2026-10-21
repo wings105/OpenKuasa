@@ -35,6 +35,10 @@ jobs:
         run: |
           set -o pipefail
           pnpm dlx vinext check 2>&1 | tee vinext-compatibility.log
+      - name: Check generated screen routes
+        run: pnpm run gen:routes --check
+      - name: Run TypeScript typecheck
+        run: pnpm run typecheck:vinext
       - name: Upload compatibility log
         if: always()
         uses: actions/upload-artifact@v4
