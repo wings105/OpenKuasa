@@ -1,0 +1,66 @@
+name: Cloudflare vinext build and preview smoke
+
+on:
+  push:
+    branches:
+      - fix/cloudflare-workers-deploy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      NODE_OPTIONS: --max-old-space-size=4096
+      OPENKUASA_PREVIEW: "1"
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate route types
+        run: pnpm exec next typegen
+      - name: Build Cloudflare Worker bundle with vinext
+        run: pnpm run build:vinext
+      - name: Boot preview and request real routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm run start:vinext -- --host 127.0.0.1 --port 8787 > preview.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; cat preview.log' EXIT
+          ready=0
+          for attempt in $(seq 1 45); do
+            code=$(curl -sS -o /tmp/openkuasa-root.html -w "%{http_code}" http://127.0.0.1:8787/ 2>/dev/null || true)
+            if test "$code" = "200"; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" -eq 1 || { echo "Preview root did not return 200"; exit 1; }
+          for route in /command /crm/contacts /finance/dashboard; do
+            status=$(curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8787$route" || true)
+            echo "$route: $status"
+            case "$status" in 200|302|307|308) ;; *) exit 1;; esac
+          done
+      - name: Upload preview startup log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-preview-log
+          path: preview.log
+          if-no-files-found: ignore

@@ -57,3 +57,6 @@ next-env.d.ts
 
 # planning notes stay local (not shipped)
 docs/superpowers/
+/dist/
+.vinext/
+.cloudflare/
