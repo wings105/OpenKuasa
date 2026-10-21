@@ -1,6 +1,9 @@
 name: OpenNext fallback validation
 
 on:
+  push:
+    branches:
+      - fix/cloudflare-opennext-test
   workflow_dispatch:
 
 permissions:
@@ -35,3 +38,31 @@ jobs:
           test -s .open-next/worker.js
           test -d .open-next/assets
           echo "OpenNext bundle generated"
+
+      - name: Smoke-test local Workers runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'OPENKUASA_PREVIEW=1\n' > .dev.vars
+          pnpm run preview:opennext -- --port 8787 > /tmp/opennext-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true; tail -n 80 /tmp/opennext-preview.log' EXIT
+          ready=0
+          for i in $(seq 1 90); do
+            code=$(curl -sS -o /tmp/opennext-home.html -w '%{http_code}' http://127.0.0.1:8787/ 2>/dev/null || true)
+            if test "$code" = 200; then ready=1; break; fi
+            sleep 2
+          done
+          if test "$ready" != 1; then echo "OpenNext Worker root did not return HTTP 200"; exit 1; fi
+          for path in /command /crm/contacts /finance/dashboard; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:8787$path" || true)
+            echo "$path: HTTP $code"
+            case "$code" in 200|301|302|303|307|308) ;; *) exit 1;; esac
+          done
+      - name: Upload preview log if smoke fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opennext-preview-debug
+          path: /tmp/opennext-preview.log
+          if-no-files-found: ignore
