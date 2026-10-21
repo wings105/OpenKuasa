@@ -1,0 +1,44 @@
+name: Cloudflare compatibility audit
+
+on:
+  push:
+    branches:
+      - fix/cloudflare-workers-deploy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vinext-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Check out proposed branch
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Scan vinext compatibility
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm dlx vinext check 2>&1 | tee vinext-compatibility.log
+      - name: Upload compatibility log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vinext-compatibility
+          path: vinext-compatibility.log
+          if-no-files-found: ignore
