@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "openkuasa-opennext-test",
+  "name": "openkuasa",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-10-21",
   "compatibility_flags": [
