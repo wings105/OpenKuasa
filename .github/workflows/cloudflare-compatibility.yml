@@ -37,6 +37,8 @@ jobs:
           pnpm dlx vinext check 2>&1 | tee vinext-compatibility.log
       - name: Check generated screen routes
         run: pnpm run gen:routes --check
+      - name: Generate Next.js route types
+        run: pnpm exec next typegen
       - name: Run TypeScript typecheck
         run: pnpm run typecheck:vinext
       - name: Upload compatibility log
