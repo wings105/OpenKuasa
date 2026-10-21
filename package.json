@@ -18,7 +18,10 @@
     "test:watch": "vitest",
     "eval:tuah": "vitest run --config vitest.evals.config.mts",
     "smoke:routes": "node scripts/smoke-routes.mjs",
-    "db:migrate": "node scripts/db-migrate.mjs"
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "build:opennext": "opennextjs-cloudflare build",
+    "deploy:opennext": "opennextjs-cloudflare deploy",
+    "preview:opennext": "opennextjs-cloudflare preview"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.136",
