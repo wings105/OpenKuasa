@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { AdSettingsForm } from '@/components/reach/ad-settings-form';
 import { createClient } from '@/lib/supabase/server';
 import { getReachData } from '@/lib/reach/supabase';
+import { createSeedReachData } from '@/lib/reach/seed';
 import { getViewer } from '@/lib/auth/viewer';
 import { can } from '@/lib/auth/permissions';
 import { cn } from '@/lib/utils';
@@ -82,8 +83,9 @@ function StatusIcon({ status }: { status: Status }) {
 }
 
 export default async function AdSettingsScreen() {
-  const supabase = await createClient();
-  const [data, viewer] = await Promise.all([getReachData(supabase), getViewer()]);
+  const viewer = await getViewer();
+  const supabase = viewer.isDemo ? null : await createClient();
+  const data = supabase ? await getReachData(supabase) : createSeedReachData();
   const settings = await data.getAdSettings();
   const canEdit = !viewer.isDemo && can(viewer.role, 'edit-data');
   const issues = CHECKS.filter((c) => c.status === 'Action needed').length;

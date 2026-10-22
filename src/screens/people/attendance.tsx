@@ -28,7 +28,7 @@ export default async function TeamAttendanceScreen({
   const { model } = await loadPeople('attendance', (data, now, ctx) =>
     // A manager cannot read the settings, so their work week comes from the members' function; asked only for them.
     loadTeamAttendance(data, ctx.viewer, raw, todayInMalaysia(now), async () =>
-      ctx.orgId ? readWorkWeek(ctx.client, ctx.orgId) : null,
+      ctx.client && ctx.orgId ? readWorkWeek(ctx.client, ctx.orgId) : null,
     ),
   );
 

@@ -10,8 +10,9 @@ import { isLiveChatAllowed } from '@/lib/ai/access';
 import { getCurrentOrg } from '@/lib/auth/current-org';
 import { hasSupabaseEnv } from '@/lib/auth/viewer';
 import { createSupabasePeopleData, getPeopleData } from '@/lib/people/supabase';
+import { createSeedPeopleData } from '@/lib/people/seed';
 import type { ClaimStatus, PeopleData, PeopleViewer } from '@/lib/people/types';
-import { NO_WORKSPACE_VIEWER, getPeopleViewer } from '@/lib/people/viewer';
+import { NO_WORKSPACE_VIEWER, PREVIEW_PEOPLE_VIEWER, getPeopleViewer } from '@/lib/people/viewer';
 import { createClient } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +32,7 @@ export const NOT_AVAILABLE = <Muted>Not available yet</Muted>;
 export const DEPARTMENT_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--muted-foreground)'];
 
 /** What a screen's builder is told besides the data: the session, the workspace and who is looking. */
-export type PeopleLoadContext = { client: SupabaseClient; orgId: string | null; viewer: PeopleViewer };
+export type PeopleLoadContext = { client: SupabaseClient | null; orgId: string | null; viewer: PeopleViewer };
 
 /**
  * Loads one Lekiu screen's model for the signed-in viewer. `model` is null
@@ -45,6 +46,22 @@ export async function loadPeople<T>(
   tag: string,
   build: (data: PeopleData, now: Date, ctx: PeopleLoadContext) => Promise<T>,
 ): Promise<{ model: T | null; viewer: PeopleViewer; chatDemo: boolean; hasWorkspace: boolean }> {
+  // The public preview must not instantiate Supabase with absent credentials.
+  // Seeded Rimba Ventures data is read-only and completely independent of iCetak.
+  if (!hasSupabaseEnv()) {
+    let model: T | null = null;
+    try {
+      model = await build(createSeedPeopleData(), new Date(), {
+        client: null,
+        orgId: null,
+        viewer: PREVIEW_PEOPLE_VIEWER,
+      });
+    } catch (error) {
+      console.error(`[people/${tag}] preview data error:`, error);
+    }
+    return { model, viewer: PREVIEW_PEOPLE_VIEWER, chatDemo: true, hasWorkspace: true };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

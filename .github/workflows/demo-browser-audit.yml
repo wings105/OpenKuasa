@@ -1,0 +1,75 @@
+name: Browser audit OpenKuasa demo (all routes)
+
+on:
+  push:
+    branches:
+      - test/openkuasa-demo-ui-audit
+      - deploy/openkuasa-preview
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-and-workers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    env:
+      CI: "true"
+      NODE_OPTIONS: --max-old-space-size=4096
+      OPENKUASA_PREVIEW: "1"
+    steps:
+      - name: Checkout test branch
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install repository dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install separate browser test tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix /tmp/openkuasa-browser --no-audit --no-fund playwright@1.58.2
+          node /tmp/openkuasa-browser/node_modules/playwright/cli.js install --with-deps chromium
+      - name: TypeScript and route files
+        run: |
+          pnpm exec next typegen
+          pnpm exec tsc --noEmit
+          pnpm run gen:routes --check
+      - name: Build OpenNext Worker
+        run: pnpm run build:opennext
+      - name: Start offline-only demo Worker and browser-test each screen
+        shell: bash
+        env:
+          PLAYWRIGHT_IMPORT: /tmp/openkuasa-browser/node_modules/playwright/index.mjs
+          AUDIT_BASE_URL: http://127.0.0.1:8787
+        run: |
+          set -euo pipefail
+          printf 'OPENKUASA_PREVIEW=1\n' > .dev.vars
+          pnpm run preview:opennext -- --port 8787 > /tmp/openkuasa-browser-worker.log 2>&1 &
+          worker_pid=$!
+          trap 'kill "$worker_pid" 2>/dev/null || true; tail -n 100 /tmp/openkuasa-browser-worker.log' EXIT
+          ready=0
+          for i in $(seq 1 80); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/ || true)
+            if test "$code" = 200; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1 || exit 1
+          node scripts/audit-workers-browser.mjs
+      - name: Upload report and failed screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openkuasa-chromium-demo-audit
+          path: |
+            audit-browser-results/
+            /tmp/openkuasa-browser-worker.log
+          if-no-files-found: ignore

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { isLiveChatAllowed } from '@/lib/ai/access';
 import { getHireData } from '@/lib/hire/supabase';
+import { createSeedHireData } from '@/lib/hire/seed';
+import { hasSupabaseEnv } from '@/lib/auth/preview-mode';
 import type { HireData } from '@/lib/hire/types';
 import { createClient } from '@/lib/supabase/server';
 
@@ -34,6 +36,17 @@ export async function loadHire<T>(
   tag: string,
   build: (data: HireData, now: Date) => Promise<T>,
 ): Promise<{ model: T | null; isDemo: boolean }> {
+  // Read the fictional seed in preview. Never create a Supabase client
+  // without project credentials or attempt a live network request.
+  if (!hasSupabaseEnv()) {
+    let model: T | null = null;
+    try {
+      model = await build(createSeedHireData(), new Date());
+    } catch (error) {
+      console.error(`[hire/${tag}] preview data error:`, error);
+    }
+    return { model, isDemo: true };
+  }
   const supabase = await createClient();
   const {
     data: { user },

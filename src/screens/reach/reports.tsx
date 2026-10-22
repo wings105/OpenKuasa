@@ -22,6 +22,8 @@ import {
 } from '@/components/ui/table';
 import { createClient } from '@/lib/supabase/server';
 import { getReachData } from '@/lib/reach/supabase';
+import { createSeedReachData } from '@/lib/reach/seed';
+import { hasSupabaseEnv } from '@/lib/auth/preview-mode';
 import { deriveReportsModel, type ReportRange } from '@/lib/reach/reports';
 import { LEAD_STAGES, type LeadChannel, type LeadStage } from '@/lib/reach/types';
 
@@ -87,7 +89,9 @@ export default async function ReportsScreen({
   const sp = (await searchParams) ?? {};
   const range = parseRange(sp.range);
 
-  const data = await getReachData(await createClient());
+  const data = hasSupabaseEnv()
+    ? await getReachData(await createClient())
+    : createSeedReachData();
   const [campaigns, leads, appts] = await Promise.all([
     data.listCampaigns(),
     data.listLeads(),

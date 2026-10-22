@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { CreativeBankGrid } from '@/components/reach/creative-bank-grid';
 import { createClient } from '@/lib/supabase/server';
 import { getReachData } from '@/lib/reach/supabase';
+import { createSeedReachData } from '@/lib/reach/seed';
 import { getViewer } from '@/lib/auth/viewer';
 import { can } from '@/lib/auth/permissions';
 import type { Channel, Creative, CreativeType } from '@/lib/reach/types';
@@ -82,8 +83,9 @@ function avg(values: number[]): number | null {
 /* ------------------------------------------------------------------ */
 
 export default async function CreativeBankScreen() {
-  const supabase = await createClient();
-  const [data, viewer] = await Promise.all([getReachData(supabase), getViewer()]);
+  const viewer = await getViewer();
+  const supabase = viewer.isDemo ? null : await createClient();
+  const data = supabase ? await getReachData(supabase) : createSeedReachData();
   const creatives: Creative[] = await data.listCreatives();
   const canEdit = !viewer.isDemo && can(viewer.role, 'edit-data');
   const isDemo = viewer.isDemo;
