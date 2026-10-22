@@ -1,0 +1,66 @@
+name: Inspect Cloudflare runtime readFile fault
+
+on:
+  push:
+    branches:
+      - fix/openkuasa-fs-runtime
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      CI: "true"
+      NODE_OPTIONS: --max-old-space-size=4096
+      OPENKUASA_PREVIEW: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build OpenNext worker
+        run: pnpm run build:opennext
+      - name: Inspect deployed fault location without publishing bundle
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const p = '.open-next/worker.js';
+          const lines = fs.readFileSync(p, 'utf8').split('\n');
+          console.log('Total bundle lines:', lines.length);
+          for (const at of [81935,81933,81920]) {
+            console.log('---- Around worker.js:' + at + ' ----');
+            lines.slice(Math.max(0,at-11),Math.min(lines.length,at+9)).forEach((line,j) => {
+              console.log((Math.max(0,at-11)+j+1)+': '+line.slice(0,380));
+            });
+          }
+          console.log('Other fs imports near route/middleware');
+          let count=0;
+          for(let i=0;i<lines.length;i++){
+            if(/readFileSync\(|fs_promises|\.readFile\(/.test(lines[i])){
+              if(count++>65)break;
+              console.log('L'+(i+1)+' '+lines[i].slice(0,260));
+            }
+          }
+          NODE
+      - name: Check Worker root via local workerd preview
+        shell: bash
+        run: |
+          printf 'OPENKUASA_PREVIEW=1\n' > .dev.vars
+          pnpm run preview:opennext -- --port 8787 > /tmp/openkuasa-preview.log 2>&1 &
+          trap 'tail -n 60 /tmp/openkuasa-preview.log' EXIT
+          for i in $(seq 1 35); do
+            code=$(curl -s -o /tmp/ok.html -w '%{http_code}' http://127.0.0.1:8787/ || true)
+            if [ "$code" = 200 ]; then echo "Root local HTTP 200"; exit 0; fi
+            sleep 2
+          done
+          exit 1
