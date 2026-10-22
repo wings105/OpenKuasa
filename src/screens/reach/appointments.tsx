@@ -6,12 +6,15 @@ import { AppointmentsTable } from '@/components/reach/appointments-table';
 import { createClient } from '@/lib/supabase/server';
 import { getReachData } from '@/lib/reach/supabase';
 import { getViewer } from '@/lib/auth/viewer';
+import { createSeedReachData } from '@/lib/reach/seed';
 import { can } from '@/lib/auth/permissions';
 import type { Appointment } from '@/lib/reach/types';
 
 export default async function AppointmentsScreen() {
-  const supabase = await createClient();
-  const [data, viewer] = await Promise.all([getReachData(supabase), getViewer()]);
+  const viewer = await getViewer();
+  const data = viewer.isDemo
+    ? createSeedReachData()
+    : await getReachData(await createClient());
   const appts: Appointment[] = await data.listAppointments();
   const canEdit = !viewer.isDemo && can(viewer.role, 'edit-data');
 

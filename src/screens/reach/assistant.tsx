@@ -24,6 +24,8 @@ import {
 import { LiveDot } from '@/components/ui/live-dot';
 import { AskJebatHero } from '@/components/reach/ask-jebat-hero';
 import { createClient } from '@/lib/supabase/server';
+import { hasSupabaseEnv } from '@/lib/auth/preview-mode';
+import { createSeedReachData } from '@/lib/reach/seed';
 import { isLiveChatAllowed } from '@/lib/ai/access';
 import { getReachData } from '@/lib/reach/supabase';
 import { buildOverviewModel, type OverviewModel } from '@/lib/reach/overview';
@@ -90,15 +92,19 @@ function Muted({ children }: { children: React.ReactNode }) {
 /* ------------------------------------------------------------------ */
 
 export default async function OverviewScreen() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const isDemo = !isLiveChatAllowed(user);
-
+  // Public read-only preview has no Supabase project. Use the same seeded data
+  // as the other Jebat screens instead of creating an invalid Supabase client.
+  let isDemo = true;
   let model: OverviewModel | null = null;
   try {
-    model = await buildOverviewModel(await getReachData(supabase), new Date());
+    if (!hasSupabaseEnv()) {
+      model = await buildOverviewModel(createSeedReachData(), new Date());
+    } else {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      isDemo = !isLiveChatAllowed(user);
+      model = await buildOverviewModel(await getReachData(supabase), new Date());
+    }
   } catch (e) {
     console.error('[reach/overview] data error:', e);
   }
