@@ -43,6 +43,10 @@ async function testRoute(context, route) {
   try {
     const response=await page.goto(base + route, { waitUntil: 'domcontentloaded', timeout: 25000 });
     status=response?.status() ?? 0;
+    const productEntry = ['/reach','/crm','/people','/hire','/finance'].includes(route);
+    if (productEntry) {
+      await page.waitForURL(url => new URL(url).pathname !== route, { timeout: 12000 }).catch(()=>{});
+    }
     await page.waitForTimeout(550);
     title=await page.title();
     const body=await page.locator('body').innerText({ timeout: 10000 });

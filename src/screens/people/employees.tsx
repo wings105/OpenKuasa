@@ -25,7 +25,7 @@ export default async function EmployeesScreen() {
     const [employees, departments] = await Promise.all([data.listEmployees(), data.listDepartments()]);
     // Only someone who can link accounts needs the member list. Without it the screen still works.
     let members: WorkspaceMember[] = [];
-    if (ctx.viewer.isHr && ctx.orgId) {
+    if (ctx.viewer.isHr && ctx.client && ctx.orgId) {
       try {
         members = await listWorkspaceMembers(ctx.client, ctx.orgId);
       } catch (error) {

@@ -6,6 +6,7 @@ import { BarGroup, FunnelFlow, type Series, type Slice } from '@/components/char
 import { LeadFunnelTable } from '@/components/reach/lead-funnel-table';
 import { createClient } from '@/lib/supabase/server';
 import { getReachData } from '@/lib/reach/supabase';
+import { createSeedReachData } from '@/lib/reach/seed';
 import { clearDanglingPromotions } from '@/lib/reach/leads-view';
 import { getViewer } from '@/lib/auth/viewer';
 import { can } from '@/lib/auth/permissions';
@@ -49,8 +50,9 @@ function Muted({ children }: { children: React.ReactNode }) {
 }
 
 export default async function LeadsScreen() {
-  const supabase = await createClient();
-  const [data, viewer] = await Promise.all([getReachData(supabase), getViewer()]);
+  const viewer = await getViewer();
+  const supabase = viewer.isDemo ? null : await createClient();
+  const data = supabase ? await getReachData(supabase) : createSeedReachData();
   const leads: Lead[] = await data.listLeads();
   const canEdit = !viewer.isDemo && can(viewer.role, 'edit-data');
   const summary = deriveLeadSummary(leads, new Date());
@@ -64,7 +66,7 @@ export default async function LeadsScreen() {
     .map((l) => l.promoted_contact_id)
     .filter((id): id is string => id !== null);
   let existingContactIds: ReadonlySet<string> = new Set();
-  if (promotedIds.length > 0) {
+  if (supabase && promotedIds.length > 0) {
     const { data: contacts } = await supabase
       .from('crm_contacts')
       .select('id')

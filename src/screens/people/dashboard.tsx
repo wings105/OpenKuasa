@@ -34,7 +34,7 @@ export default async function DashboardScreen() {
         viewer: ctx.viewer,
         employees,
         today,
-        readWaiting: () => (ctx.orgId ? readWaitingCountsStrict({ client: ctx.client, orgId: ctx.orgId }) : Promise.resolve(ZERO_WAITING)),
+        readWaiting: () => (ctx.client && ctx.orgId ? readWaitingCountsStrict({ client: ctx.client, orgId: ctx.orgId }) : Promise.resolve(ZERO_WAITING)),
       });
     if (!team) {
       // A manager's company-wide cards keep their HR-only notices.
