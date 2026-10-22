@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import { staticSecurityHeaders } from "./src/lib/security/headers";
 
 const nextConfig: NextConfig = {
+  // In sample-data preview, serve original image assets directly. This avoids
+  // requiring Cloudflare's optional (billable) IMAGES transformation binding.
+  images: { unoptimized: process.env.OPENKUASA_PREVIEW === '1' },
   // Development logs print each server function call with its arguments; a form post's arguments are personal data.
   logging: { serverFunctions: false },
   experimental: {
