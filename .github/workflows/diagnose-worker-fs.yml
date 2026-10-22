@@ -29,26 +29,23 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build OpenNext worker
         run: pnpm run build:opennext
-      - name: Inspect deployed fault location without publishing bundle
+      - name: Inspect final Wrangler-deploy bundle at runtime stack trace
         shell: bash
         run: |
+          set -euo pipefail
+          pnpm exec wrangler deploy --dry-run --outdir ./dryrun-bundle
           node <<'NODE'
-          const fs = require('fs');
-          const p = '.open-next/worker.js';
-          const lines = fs.readFileSync(p, 'utf8').split('\n');
-          console.log('Total bundle lines:', lines.length);
-          for (const at of [81935,81933,81920]) {
-            console.log('---- Around worker.js:' + at + ' ----');
-            lines.slice(Math.max(0,at-11),Math.min(lines.length,at+9)).forEach((line,j) => {
-              console.log((Math.max(0,at-11)+j+1)+': '+line.slice(0,380));
-            });
-          }
-          console.log('Other fs imports near route/middleware');
-          let count=0;
-          for(let i=0;i<lines.length;i++){
-            if(/readFileSync\(|fs_promises|\.readFile\(/.test(lines[i])){
-              if(count++>65)break;
-              console.log('L'+(i+1)+' '+lines[i].slice(0,260));
+          const fs = require('fs'), path = require('path');
+          function list(dir) { return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e => e.isDirectory()?list(path.join(dir,e.name)):[path.join(dir,e.name)]); }
+          const js = list('dryrun-bundle').filter(p=>/\\.(?:js|mjs)$/.test(p));
+          console.log('Compiled worker files:',js.map(p=>({p,size:fs.statSync(p).size})));
+          for(const p of js.slice(0,5)) {
+            const lines=fs.readFileSync(p,'utf8').split('\\n');
+            console.log('PATH:',p,'LINES:',lines.length);
+            if (lines.length<80000) continue;
+            for(const lineNo of [81935,81933]){
+              console.log('--- At '+lineNo+' ---');
+              for(let n=lineNo-15;n<=lineNo+15;n++) console.log(n+': '+(lines[n-1]||'').slice(0,650));
             }
           }
           NODE
