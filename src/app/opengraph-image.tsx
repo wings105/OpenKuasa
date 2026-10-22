@@ -1,6 +1,4 @@
 import { ImageResponse } from 'next/og';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { KERIS_BLADE, KERIS_GUARD, KERIS_HILT } from '@/components/brand/keris-mark';
 
 export const alt =
@@ -18,16 +16,8 @@ const PRODUCTS = [
   { name: 'Bendahara', colour: '#f0c040' },
 ];
 
-// Does not depend on the request, so it is read once at module scope.
-const pamorData = await readFile(join(process.cwd(), 'public/landing/hero-pamor.jpg'), 'base64');
-const pamorSrc = `data:image/jpeg;base64,${pamorData}`;
-
-// The renderer cannot use the site's web font or fake a bold, so Lexend ships
-// as files (OFL, see src/app/fonts/OFL.txt).
-const [lexendRegular, lexendBold] = await Promise.all([
-  readFile(join(process.cwd(), 'src/app/fonts/Lexend-Regular.ttf')),
-  readFile(join(process.cwd(), 'src/app/fonts/Lexend-Bold.ttf')),
-]);
+// The social image must render without runtime filesystem access on Cloudflare Workers.
+// Use CSS gradients instead of disk-loaded background photographs and font files.
 
 export default async function Image() {
   return new ImageResponse(
@@ -40,25 +30,10 @@ export default async function Image() {
           height: '100%',
           backgroundColor: '#050807',
           color: '#ffffff',
-          fontFamily: 'Lexend',
+          fontFamily: 'sans-serif',
         }}
       >
-        {/* Mirrored so the bright lines sit bottom right, clear of the text. */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: 1200,
-            height: 630,
-            display: 'flex',
-            backgroundImage: `url(${pamorSrc})`,
-            backgroundSize: '1200px 670px',
-            backgroundPosition: '0 -40px',
-            transform: 'scaleX(-1)',
-            opacity: 0.55,
-          }}
-        />
+        {/* Decorative backgrounds are pure CSS; no filesystem or image binding required. */}
         <div
           style={{
             position: 'absolute',
@@ -166,11 +141,8 @@ export default async function Image() {
       </div>
     ),
     {
-      ...size,
-      fonts: [
-        { name: 'Lexend', data: lexendRegular, weight: 400, style: 'normal' },
-        { name: 'Lexend', data: lexendBold, weight: 700, style: 'normal' },
-      ],
+      ...size
+
     },
   );
 }
