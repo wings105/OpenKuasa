@@ -37,10 +37,11 @@ jobs:
           node <<'NODE'
           const fs = require('fs'), path = require('path');
           function list(dir) { return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e => e.isDirectory()?list(path.join(dir,e.name)):[path.join(dir,e.name)]); }
-          const js = list('dryrun-bundle').filter(p=>/\\.(?:js|mjs)$/.test(p));
+          const js = list('dryrun-bundle').filter(p=>p.endsWith('.js')||p.endsWith('.mjs'));
+          console.log('Files generated:',list('dryrun-bundle').map(p=>({p,size:fs.statSync(p).size})).slice(0,40));
           console.log('Compiled worker files:',js.map(p=>({p,size:fs.statSync(p).size})));
           for(const p of js.slice(0,5)) {
-            const lines=fs.readFileSync(p,'utf8').split('\\n');
+            const lines=fs.readFileSync(p,'utf8').split(String.fromCharCode(10));
             console.log('PATH:',p,'LINES:',lines.length);
             if (lines.length<80000) continue;
             for(const lineNo of [81935,81933]){
