@@ -58,7 +58,17 @@ jobs:
           trap 'tail -n 60 /tmp/openkuasa-preview.log' EXIT
           for i in $(seq 1 35); do
             code=$(curl -s -o /tmp/ok.html -w '%{http_code}' http://127.0.0.1:8787/ || true)
-            if [ "$code" = 200 ]; then echo "Root local HTTP 200"; exit 0; fi
+            if [ "$code" = 200 ]; then echo "Root local HTTP 200"; break; fi
             sleep 2
           done
-          exit 1
+          test "$code" = 200 || { echo "Root failed"; exit 1; }
+          for route in /command /crm/contacts /finance/dashboard; do
+            status=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:8787$route");
+            echo "$route status $status";
+            test "$status" = 200 || exit 1;
+          done
+          status=$(curl -sS --max-time 45 -o /tmp/openkuasa-og.png -w '%{http_code}' "http://127.0.0.1:8787/opengraph-image");
+          echo "/opengraph-image status $status";
+          test "$status" = 200 || exit 1;
+          file /tmp/openkuasa-og.png;
+          file /tmp/openkuasa-og.png | grep -q 'PNG image data';
