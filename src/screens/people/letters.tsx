@@ -35,7 +35,7 @@ export default async function LettersScreen() {
       team ? data.listLetterTemplates() : Promise.resolve([]),
       ctx.viewer.isHr && !ctx.viewer.isDemo ? data.listEmployees() : Promise.resolve([]),
       // One read of the workspace's details: the name for the letters and the letterhead for the view and the previews.
-      hasSupabaseEnv() && ctx.orgId
+      hasSupabaseEnv() && ctx.client && ctx.orgId
         ? getLetterhead({ client: ctx.client, orgId: ctx.orgId, isDemo: ctx.viewer.isDemo })
         : Promise.resolve(null),
     ]);
