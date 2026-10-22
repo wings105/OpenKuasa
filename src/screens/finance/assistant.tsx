@@ -24,6 +24,7 @@ import {
 import { LiveDot } from '@/components/ui/live-dot';
 import { AskBendaharaHero } from '@/components/finance/ask-bendahara-hero';
 import { createClient } from '@/lib/supabase/server';
+import { hasSupabaseEnv } from '@/lib/auth/preview-mode';
 import { isLiveChatAllowed } from '@/lib/ai/access';
 import { getViewer } from '@/lib/auth/viewer';
 import { listBills } from '@/lib/finance/bills';
@@ -156,23 +157,23 @@ function overdueAge(days: number): string {
 /* ------------------------------------------------------------------ */
 
 export default async function OverviewScreen() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const isDemo = !isLiveChatAllowed(user);
-
-  // A signed-in person sees only their own workspace's figures. Anything with no real
-  // source yet shows "Not available yet" rather than the sample numbers.
+  // A database-free preview displays sample numbers and must not initialize
+  // Supabase with missing URL/key. Live mode keeps the original data isolation.
+  let isDemo = true;
   let model: FinanceOverview | null = null;
-  if (!isDemo) {
-    try {
-      const viewer = await getViewer();
-      const ctx = { client: supabase, orgId: viewer.orgId };
-      const [invoices, bills] = await Promise.all([listInvoices(ctx), listBills(ctx)]);
-      model = buildFinanceOverview(invoices, bills, todayUtc());
-    } catch (e) {
-      console.error('[finance/assistant] data error:', e);
+  if (hasSupabaseEnv()) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    isDemo = !isLiveChatAllowed(user);
+    if (!isDemo) {
+      try {
+        const viewer = await getViewer();
+        const ctx = { client: supabase, orgId: viewer.orgId };
+        const [invoices, bills] = await Promise.all([listInvoices(ctx), listBills(ctx)]);
+        model = buildFinanceOverview(invoices, bills, todayUtc());
+      } catch (e) {
+        console.error('[finance/assistant] data error:', e);
+      }
     }
   }
   const failed = <Muted>Couldn&apos;t load your dashboard — please refresh</Muted>;
