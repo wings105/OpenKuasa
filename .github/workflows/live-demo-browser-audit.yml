@@ -1,0 +1,39 @@
+name: Read-only live OpenKuasa Worker browser audit
+
+on:
+  push:
+    branches:
+      - test/openkuasa-demo-ui-audit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-worker-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: "true"
+      AUDIT_BASE_URL: https://openkuasa.msg-ebye.workers.dev
+      PLAYWRIGHT_IMPORT: /tmp/openkuasa-live-browser/node_modules/playwright/index.mjs
+    steps:
+      - name: Checkout audit scripts only (no secrets)
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install isolated Chromium test runtime
+        run: |
+          npm install --prefix /tmp/openkuasa-live-browser --no-audit --no-fund playwright@1.58.2
+          node /tmp/openkuasa-live-browser/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Test 100 public demo pages in live Cloudflare Worker
+        run: node scripts/audit-workers-browser.mjs
+      - name: Upload read-only browser report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openkuasa-live-demo-browser-audit
+          path: audit-browser-results/
+          if-no-files-found: ignore
